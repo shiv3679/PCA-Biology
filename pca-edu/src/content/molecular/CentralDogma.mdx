@@ -1,0 +1,129 @@
+import Callout from '../../components/Callout.jsx'
+
+# The Central Dogma — DNA → RNA → Protein
+
+> “Information flows from stable storage to a working copy,  
+>  then to the molecular machines that keep a fly alive.”
+
+---
+
+## 1 Why should a Drosophila lab still care? 🪰
+
+* **Cloning a new CRISPR donor**? — you’re editing DNA.  
+* **In-situ staining**? — you’re chasing pre-mRNA splicing patterns.  
+* **Proteomics of flight muscle**? — you’re reading the final layer.  
+Knowing the hand-offs between these layers lets you troubleshoot at the
+right step—not every weird phenotype is transcriptional!
+
+---
+
+## 2 Zoom out: the three hand-offs
+
+| Layer | Key event | Core enzymes / factors |
+|-------|-----------|------------------------|
+| **DNA** | Replication & repair | DNA-pol δ / ε, RPA, ligase |
+| **RNA** | Transcription & splicing | RNA-pol II, spliceosome, CBC |
+| **Protein** | Translation | Ribosome, tRNAs, release factors |
+
+---
+
+## 3 DNA — the long-term archive 📚
+
+### 3.1  Replication in the fly embryo  
+Early *Drosophila* embryos blast through S phase every **8–10 min**.
+The rapid cycles rely on:
+
+* **Helicase MCM2-7** — opens the fork.  
+* **DNA-pol ε** — leading-strand synthesis.  
+* **PCNA** — sliding clamp that tethers polymerase.
+
+<Callout type="warn">
+In those rapid cycles, **no G1/G2 checkpoints** run; replication errors can
+sneak through and create somatic mosaics seen later in imaginal discs.
+</Callout>
+
+### 3.2  Repair pathways  
+* Double-strand breaks: **non-homologous end joining** (Ku70/80, Lig4).  
+* Template errors: **MMR** via Msh2/Mlh1.  
+* UV lesions: **nucleotide excision repair** (XPC, TFIIH).
+
+---
+
+## 4 RNA — the working copy 📝
+
+### 4.1  Transcription flow  
+1. **Promoter melting** — TBP + TFIIB load **RNA-pol II**.  
+2. **Elongation checkpoint** — P-TEFb phosphorylates Ser2 of the CTD.  
+3. **Termination** — CPSF cuts; **poly-A polymerase** adds the tail.
+
+<Callout type="tip">
+*Fly fact:* the 3′ UTR of **even-skipped** adds shadow enhancers in trans;
+a long poly-A tail can double protein output in nuclear cycles 13-14.
+</Callout>
+
+### 4.2  Splicing & isoforms  
+Alternative exons in *Dscam* can generate **38 016** isoforms—
+crucial for neuronal wiring.
+
+```python
+# Quick Py snippet: translate an exon combination
+from Bio.Seq import Seq
+isoform = Seq("ATG...TAG")     # paste exon combo
+print(isoform.translate())
+```
+
+### 4.3 RNA quality checks
+- **Nonsense-mediated decay** — UPF proteins degrade PTC-containing mRNAs.
+
+- **piRNA silencing** — protects germ-line from transposons.
+
+## 5 Protein — the end-product 🧬
+
+### 5.1 Translation checkpoints
+- **Initiation** — eIF2-GTP brings Met-tRNA.
+
+- **Elongation** — eEF1A loads aminoacyl-tRNA.
+
+- **Termination** — eRF1 recognises stop codon; eRF3 hydrolyses.
+
+Ribosome profiling in Drosophila S2 cells shows stall sites at proline
+codons—factor into codon-optimised transgenes.
+
+### 5.2 Post-translational tweaks
+
+| Modification    | Enzyme      | Example function                    |
+| --------------- | ----------- | ----------------------------------- |
+| Phosphorylation | MAPK        | Torso pathway in early embryo       |
+| Ubiquitination  | SCF complex | Cubitus interruptus degradation     |
+| Acetylation     | CBP         | Chromatin opening during heat-shock |
+
+## 6 Regulation layers — more than a straight arrow 🔄
+- 1. **Epigenetics** — H3K27me3 silences Ubx in wing imaginal disc.
+
+- 2. **miRNAs** — bantam miRNA represses pro-apoptotic hid.
+
+- 3. **Feedback loops** — Ftz-F1 protein boosts its own promoter, sharpening stripes.
+
+<Callout type="info"> The “dogma” is **directional for information**, but regulation flows backwards: proteins tweak transcription; RNAs guide chromatin remodelers. </Callout>
+
+## Troubleshooting cheat-sheet 🛠️
+
+| Symptom                          | Likely layer                   | First fix                                   |
+| -------------------------------- | ------------------------------ | ------------------------------------------- |
+| mRNA ↑ but protein flat          | Translation or degradation     | Look at ribosome profiling / Western blot   |
+| Protein truncated                | DNA mutation or splicing error | Check exon junction reads; Sanger the locus |
+| Nothing expresses from transgene | Chromatin silencing            | Add heterologous promoter or insulator      |
+
+
+## 8 Take-home ✅
+
+- DNA is the archive, RNA the working draft, protein the machine.
+
+- Each hand-off has guard rails (checkpoints, QC pathways).
+
+- Most fly phenotypes trace to one broken step—PCA, RNA-seq, or mass-spec
+tells you which layer to zoom in on.
+
+- Time to move from the “telephone directory” to the operating manual of
+your favourite gene! 🪰
+

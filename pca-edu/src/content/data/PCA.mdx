@@ -1,0 +1,402 @@
+import Callout from '../../components/Callout.jsx'
+import { GeneScatter, PCScatter, ScreePlot } from '../../labs/BcPcaPlots.jsx'
+
+
+# Principal Component Analysis (PCA) — a bench-scientist’s lens
+
+When you open an RNA-seq spreadsheet, it’s like flipping through an old
+phonebook — **thousands of gene columns** and **hundreds of sample rows** that
+all look the same at arm’s length.  
+Plotting one gene against another helps a little, but there are
+_≈ 20 000 × 20 000_ possible pairs. No one has time for that.
+
+**PCA is the lab notebook’s zoom-out button.**  
+It blends those gene columns into just **two or three new axes** that keep
+the main biological patterns but throw away the clutter, so you can:
+
+* glance at a scatter-plot and **see clusters** (e.g. limb bud vs heart tube),
+* catch a **time gradient** in a developmental series without reading timestamps,
+* spot **batch effects** while you can still fix them.
+
+Think of it as turning a dense table into a **map**: the big features pop out,
+and you decide where to dig deeper next.
+
+
+---
+
+## 1 Why does this matter in developmental biology? 🐣
+
+
+* **Stage series** – in an embryo-to-larva RNA-seq time-course,  
+  **PC 1** often lines up almost perfectly with minutes post-fertilisation;
+  you can spot mis-staged collections immediately.
+
+* **Imaginal-disc dissections** – wing, leg, and eye discs pulldown to
+  separate clouds; if a wing sample clusters with eye discs, you know a
+  forceps slip put wrong tissue in the tube.
+
+* **Segmentation mutants** – in pair-rule knock-outs
+  (e.g. *even-skipped*), PC 2 can isolate the mutant lanes without touching
+  the metadata—handy when blinding or when genotyping failed.
+
+* **Sex-bias check** – mixed-sex larval pools?  
+  Dosage-compensation genes load heavily on one PC, flagging unbalanced
+  male / female ratios before they skew differential analysis.
+
+* **Batch effects** – different TRIzol lots or library preps usually hijack
+  an early PC; run ComBat/Harmony **before** downstream GO enrichment.
+
+
+---
+
+## 2 Let’s see it with real data
+
+### 2 · 1 Raw-gene scatter
+
+Pick **any two genes**—the scatter rarely tells a full story.
+
+<GeneScatter />
+
+The dots represent **569 lumped tumour biopsies** from the classic
+*Breast-Cancer Wisconsin* study.  
+Each biopsy is summarised by 30 quantitative features
+(e.g. mean nuclear radius, texture, concavity).  
+For teaching, think of these features like **30 housekeeping-level genes**
+you might measure in a *Drosophila* larval tissue panel.
+
+Why does a single gene-vs-gene view fall short?
+
+1. **Combinatorial explosion**  
+   Even with only 30 features, you already have 435 pairwise plots.
+   In real fly RNA-seq (13 000 genes) that explodes to 85 million—
+   impossible to screen by eye.
+
+2. **Redundant features**  
+   Just as *RpL32* and *RpS3* co-wiggle in every fly sample,
+   “texture-mean” and “texture-stderr” in the tumour data are near-collinear.
+   Plotting one against the other gives a diagonal line—no new biology.
+
+3. **Hidden multi-axis patterns**  
+   Malignant vs benign status is rarely driven by a single “gene”.
+   Here it’s a weighted cocktail of cell-shape metrics.
+   In flies, sex or developmental stage likewise requires dozens of genes
+   to separate cleanly. No 2-D slice captures that mixture.
+
+4. **Gradients vs clusters**  
+   Early- and late-stage tumours (or embryos) often form a **trajectory**,
+   not discrete blobs. Without a colourbar or third axis you may mistake
+   a time gradient for noise.
+
+<Callout type="info">
+**Bottom line:** raw scatter offers one street corner’s view; PCA reveals the
+whole city block—letting you spot both clusters (benign ↔ malignant) and
+gradients (proliferation, stress) in *one* picture.
+</Callout>
+
+
+
+### 2 · 2 PCA view
+
+The dots are the **exact same biopsies** as before, but each axis is
+now a **principal component**—a weighted cocktail of all 30 original
+features:
+
+* **PC 1** = “maximum‐wiggle axis” – whatever combination of cell-shape
+  and nucleus metrics shows the biggest spread across all tumours.
+* **PC 2** = next-largest wiggle, forced to be at right angles to PC 1.
+
+Think of PCs like **meta-genes**: instead of plotting *gene A* or
+*texture-mean* directly, you plot a *recipe* that blends many genes
+(features) into one super-axis.  
+That recipe is chosen automatically to reveal the largest possible
+variance, so patterns the raw scatter hid (malignant ↔ benign) pop out
+as a clean diagonal split.
+
+### Why this is powerful
+
+| Raw scatter | PC scatter |
+|-------------|------------|
+| Only compares **2 of 30** features | Blends **all 30** optimally |
+| Correlated features give redundant plots | Correlations are *compressed* into one axis |
+| Outliers hide if you pick the wrong pair | Outliers jump out because PCs catch global variance |
+
+**Fly parallel:** In a time-series of *Drosophila* embryos, PC 1 often
+becomes the developmental clock, PC 2 captures yolk clearance or muscle
+onset—axes you rarely see when plotting individual genes one-by-one.
+
+<Callout type="tip">
+Hover a point to view its label; try reading the scatter from
+bottom-left to top-right—you’ll notice benign and malignant cases peel
+apart along PC 1 **without** us ever telling PCA what “cancer” means.
+</Callout>
+
+
+<PCScatter />
+
+### 2 · 3 Scree plot
+
+The **scree plot** ranks PCs by how much of the total “wiggle” (variance)
+each one captures. Think of it as asking:
+
+> “If my entire dataset were a cake, how many slices do I need before
+>  I’ve eaten almost everything that tastes different?”
+
+* **Steep first bar** – PC 1 soaks up nearly half the cake:
+  here it’s the malignancy axis; in *Drosophila* time-series it would
+  usually be embryonic age.
+* **PC 2 adds a smaller slice** – often a technical factor
+  (batch, library size) or a secondary biology axis
+  (e.g. yolk resorption start).
+* **Long flat tail after PC 6** – each extra PC adds crumbs
+  (noise, rare cell states, or single mis-dissected samples).
+
+### How to read it in practice
+
+| Scree shape | Action in a fly project |
+|-------------|------------------------|
+| **Sharp elbow after PC 2** | Keep PCs 1–2 for quick QC; feed first 30–40 PCs into UMAP/clustering. |
+| **Gently sloping tail** | Biology is complex: many small processes; consider filtering low-variance genes. |
+| **No clear drop (plateau)** | Likely technical noise; re-check normalisation & batch correction. |
+
+<Callout type="info">
+*Fly parallel:*  
+In a segmentation-mutant RNA-seq, you may see PC 1 ≈ “mutant vs
+wild-type” (large bar), PC 2 ≈ “head vs trunk proportion” (smaller bar),
+and everything beyond PC 5 mostly noise.  
+That tells you a handful of PCs already summarise the experiment’s key
+story.
+</Callout>
+
+
+<ScreePlot />
+
+
+---
+
+## 3 Key vocabulary (no equations, promise!) 📖
+
+- • **Feature**
+  A single measurement column. In practice: one gene’s CPM, a phospho-peptide intensity, or a ChIP–seq peak height.
+
+- • **Principal Component (PC)**
+  A brand-new axis that mixes many features.
+  Fly example: PC 1 might be 0.4 × runt + 0.3 × odd + 0.2 × Krüppel, capturing “blastoderm segmentation”.
+
+- • **Score (sample score)**
+  The numeric value a particular library gets on that PC—its coordinate along the new axis.
+  Think of it as “how segmentation-like is this sample?”
+
+- • **Loading (gene loading)**
+  The weight a gene has inside a PC recipe; high absolute value → gene strongly pushes that PC up or down.
+  Biologists scan loadings to identify pathways driving the axis.
+
+- • **Scree plot**
+  A bar chart showing what fraction of total variance each PC explains; helps decide how many PCs to keep.
+
+- • **Biplot**
+  A PC scatter with a few top-loading genes drawn as arrows.
+  Great for posters: you see both sample clusters and which genes pull them apart.
+
+<Callout type="tip"> Hover any dot in the PCA scatter above; the tooltip shows its **score** on PC 1 & PC 2. High score on PC 1 ➜ likely malignant (or late-stage embryo, in a fly time-course). </Callout>
+
+
+---
+
+## 3 When should I run PCA in a fly project? 🛠️
+
+**• Right after normalisation**  
+&nbsp;&nbsp;Once you’ve converted raw counts to **TPM**, **CPM**, or used  
+DESeq2’s *variance-stabilising transform*, drop the matrix straight
+into PCA.  
+If *RpL32* and *Act5C* still dominate PC 1 you know scaling failed.
+
+**• Library QC in seconds**  
+&nbsp;&nbsp;A single scatter often exposes:  
+&nbsp;&nbsp;• mis-sexed larvae (male vs female PC split)  
+&nbsp;&nbsp;• poor dissections (one “wing disc” library clusters with gut)  
+&nbsp;&nbsp;• low-RIN RNA (outliers on a “degradation” PC)
+
+**• Post batch-correction sanity check**  
+&nbsp;&nbsp;After ComBat / Harmony, rerun PCA.  
+If “TRIzol lot” or “sequencing run” is still PC 2, the correction
+didn’t stick.
+
+**• Dim-reduction staging for t-SNE / UMAP**  
+&nbsp;&nbsp;Feed the first **30–50 PCs** (or PCs covering ≈ 80 % variance)
+into t-SNE or UMAP.  
+You keep biology, drop noise, and the non-linear methods run faster.
+
+**• Clonal lineage or time-course ordering**  
+&nbsp;&nbsp;In a 0–10 h embryo series, PC 1 often becomes a near-perfect
+developmental timeline—handy for spotting out-of-order collections.
+
+<Callout type="info">
+**Quick rule:** if you have more than ~5 k genes and ~20 samples,
+run PCA *before* you look at any heat-map or run any clustering.
+</Callout>
+
+
+---
+
+## 4 Five-step PCA workflow ☑️
+
+| # | Lab action | Quick code | Why it matters (fly context) |
+|---|------------|-----------|------------------------------|
+| **1 · Filter** low-info genes | `df = df[df.mean(1) > 5]`  <br/>`adata = adata[:, adata.X.mean(0) > 5]` | Removes genes expressed in ≤5 reads; cuts ribosomal noise so segmentation genes drive PCs. |
+| **2 · Transform** counts | `np.log2(x + 1)`  <br/>`sc.pp.log1p(adata)` | Compresses huge dynamic range; without a log, *rp49* dwarfs *eve*. |
+| **3 · Scale** each gene | `StandardScaler()`  <br/>`sc.pp.scale(adata)` | Gives every gene equal weight; **vital** so PC 1 isn’t just library size. |
+| **4 · Run PCA** | `PCA(n_components=50)`  <br/>`sc.tl.pca(adata, n_comps=50)` | Builds PC table—50 is plenty for t-SNE/UMAP later. |
+| **5 · Plot & QC** | Scree + **PC1 vs PC2**  <br/>`sc.pl.pca_variance_ratio(adata)` | Find clusters (imaginal discs), gradients (embryo age), outliers (bad prep). |
+
+<Callout type="tip">
+🛠️ **One-liner shortcut**
+
+* **Scanpy** `sc.tl.pca(adata, svd_solver='arpack', n_comps=50)`  
+* **Seurat** `pbmc_small <- RunPCA(pbmc_small, npcs = 50)`  
+
+Both commands handle log-transform, scaling, SVD, **and** store scores +
+loadings for you.
+</Callout>
+
+
+---
+
+## 5 Reading the plots 👀
+
+### 5.1  Scree plot 📊  
+*What to look for*
+
+* **Steep elbow after PC 1 or PC 2** – most biology fits into 1-2 axes; keep those and a handful more for UMAP/clustering.  
+* **Long gradual tail** – many tiny sources of variance (cell-cycle, sex, mild stress).  
+* **Totally flat** – likely technical noise: re-check scaling or batch correction.
+
+*Fly example:* in a 0-20 h embryo series, PC 1 often explains **>40 %** and
+tracks developmental time; the tail PCs (< 1 %) are usually ribosomal noise.
+
+---
+
+### 5.2  PC scatter 🗺️  
+
+| Visual pattern | What it probably means | Quick action |
+|----------------|------------------------|--------------|
+| **Two tight blobs** | Two conditions (e.g. mutant vs wild-type) **or** a batch | Check metadata; run ComBat if it’s batch |
+| **Smooth diagonal smear** | Continuous variable (age, drug dose) | Colour dots by that variable to confirm |
+| **One far-out dot** | Bad library: DNA contamination, low RIN, or wrong tissue | Re-sequence or drop sample |
+| **Ring / donut** | Cell-cycle effect | Regress out cell-cycle genes, rerun PCA |
+
+Tip: Hover points in the PC scatter above—malignant (red) vs benign (green)
+snap apart along PC 1 with zero manual labels.
+
+---
+
+### 5.3  Loadings table 🎯  
+
+* **Sort by absolute value** – top ± genes push the PC the hardest.  
+  *e.g.* ribosomal genes → PC captures library size.  
+* **Positive vs negative side** – genes on opposite ends often mark two cell
+  fates (muscle vs neuron) or two pathways (Notch high / low).  
+* **Pathway enrichment** – run GO on the top 200 loadings to give each PC a
+  biological nickname (“OxPhos PC”, “Wing disc PC”).
+
+<Callout type="info">
+**Fly tip:**  
+If *even-skipped*, *fushi-tarazu*, and *paired* all rank high on PC 2,
+that axis is almost certainly **segmentation gene activity**—use it to order
+mutant embryos along the segmentation clock.
+</Callout>
+
+
+---
+
+## 6 What PCA will **NOT** do 🛑
+
+* **Name your clusters for you**  
+  PCA only rotates the data; it has no idea a blob is “wing disc” or
+  “thoracic muscle”. You still need metadata, marker genes, or
+  in-situ staining to pin the label on each cloud.
+
+* **Erase batch effects**  
+  If TRIzol lot B shifts every sample up PC 2, PCA just highlights the
+  problem. Run ComBat, Harmony, or remove offending genes, then redo
+  PCA to confirm the batch axis is gone.
+
+* **Choose the “right” number of PCs**  
+  Scree plots help, but judgement counts:  
+  *Imaging QC* might keep only the first 2 PCs;  
+  *single-cell atlases* often keep the first 50 before UMAP.
+
+* **Rescue missing or zero-inflated genes**  
+  Low-coverage embryo libraries will still look noisy after PCA.
+  Consider imputation (MAGIC, SAVER) before projecting.
+
+* **Detect non-linear structure**  
+  Complex branching (germline → somatic; neuroblast → neuron) may hide
+  in later PCs. That’s why we feed ~50 PCs into t-SNE or UMAP for the
+  final map.
+
+<Callout type="warn">
+PCA is a **flashlight**, not a repair kit: it shows you where the
+problems and patterns live, but fixing or labelling them is up to you.
+</Callout>
+
+
+---
+
+## 7 FAQ 🎯
+
+**Q 1 Do I always scale genes before PCA?**  
+> **Yes** for RNA-seq, microarray, ATAC counts, proteomics.  
+> **Skip** scaling only if your features are **already** z-scores (e.g. ChIP log₂-fold-changes).  
+> *Fly note:* Without scaling, high-coverage yolk genes (*Yp1, Yp2*) hijack PC 1 and swamp segmentation signals.
+
+---
+
+**Q 2 How many PCs should I feed into t-SNE / UMAP?**  
+> Aim for the first PCs that together explain **≈ 80 %** of variance **or** the first **30–50 PCs**, whichever is smaller.  
+> *Example:* 0-20 h embryo series → first 25 PCs hit 82 % variance—good input for UMAP.
+
+---
+
+**Q 3 My PC scatter looks like coloured soup—what now?**  
+> • **Filter harder:** drop genes with variance < 0.5 CPM.  
+> • **Transform counts:** use VST (DESeq2) or log₂(x + 1).  
+> • **Check batch:** colour dots by sequencing run; if stripes appear, correct batch first.  
+> • **Increase PCs:** sometimes structure hides in PC 3/4—try a PC 2 vs PC 3 plot.
+
+---
+
+**Q 4 PC 1 splits males vs females—good or bad?**  
+> Good for sex-bias projects; bad if your experiment wasn’t sex-balanced.  
+> In larval RNA-seq, *roX1/2* and *mle* load heavily; remove sex-linked genes or balance samples to stop the axis dominating.
+
+---
+
+**Q 5 Can I run PCA on 10× Genomics raw counts?**  
+> Not directly. First log-normalise (Scanpy `sc.pp.normalize_total` + `sc.pp.log1p`) then scale. Raw counts violate PCA’s equal-variance assumption.
+
+---
+
+**Q 6 We have only 6 samples—should we still run PCA?**  
+> Yes, but treat it as a sanity plot, not gospel:  
+> • PC 1/2 may flip if you swap one sample.  
+> • Scree plot plateaus fast; keep PCs until R² ≤ 1/N (≈ 17 % for N = 6).  
+> Use hierarchical clustering as a cross-check.
+
+<Callout type="tip">
+💡 **One weird trick:**  
+If PC 2 still looks noisy, try plotting **PC 2 vs library size**; a diagonal
+trend means residual depth bias.
+</Callout>
+ 
+
+---
+
+## 8 Take-home checklist ✅
+
+* Always **log-transform + scale** before PCA.  
+* Use **scree + scatter** to QC batches and outliers.  
+* Keep **loadings** to explain biology behind each PC.  
+* Save the **scores table**—downstream tools reuse it (e.g. clustering).
+
+PCA done? Great—now you have a map.  
+Time to explore!

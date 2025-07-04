@@ -1,0 +1,106 @@
+import Callout from '../../components/Callout.jsx'
+
+# Enzyme Kinetics — turning substrate into story
+
+> How fast does a fly’s enzyme work, what slows it down, and how do we measure it on the bench?
+
+---
+
+## 1 Why care in a *Drosophila* lab? 🪰
+
+* **Metabolism mutants** – *Adh* polymorphisms change ethanol survival; kinetics tells you *how much* faster the “fast” allele burns EtOH.  
+* **Signal‐transduction** – MAPK phosphatase mutants alter *k_cat/K_m* for ERK; quantify pathway damping.  
+* **Drug screening** – IC₅₀ curves on fly acetylcholinesterase predict insecticide resistance.  
+* **Teaching** – one 96-well plate of larval extracts, NADH readout, students see Michaelis–Menten live.
+
+---
+
+## 2 Core parameters (plain English) 📖
+
+| Symbol | What it really is | Easy metaphor |
+|--------|------------------|---------------|
+| **v** | Reaction rate (μmol · min⁻¹) | Speedometer needle |
+| **V<sub>max</sub>** | Top speed when enzyme is saturated | Car’s max speed in 5th gear |
+| **K<sub>m</sub>** | Substrate concentration at ½ V<sub>max</sub> | How much throttle before cruising |
+| **k<sub>cat</sub>** | Turnover per enzyme per second | Cylinders firing per second |
+| **k<sub>cat</sub>/K<sub>m</sub>** | Catalytic efficiency | km · L⁻¹ · s⁻¹ fuel economy |
+
+<Callout type="tip">
+*Fly context:* wild-type **Alcohol dehydrogenase** has *k<sub>cat</sub>/K<sub>m</sub>* ≈ 6 × 10⁴ M⁻¹ s⁻¹.  
+Fast allele raises that to 1.2 × 10⁵ — double efficiency explains faster ethanol detox.
+</Callout>
+
+---
+
+## 3 Classic Michaelis–Menten workflow ☑️
+
+| Step | Bench action | Quick code (Python) |
+|------|--------------|---------------------|
+| **1 · Prep** | Clarify larval homogenate, measure protein | `mg_prot = BCA(lysate)` |
+| **2 · Substrate series** | 0.1 → 10 × expected K<sub>m</sub> | `S = np.logspace(-1,1,12)` |
+| **3 · Start reaction** | Add NAD⁺, read A₃₄₀ every 10 s | `rates = slope(OD, t)` |
+| **4 · Fit curve** | Non-linear regression to M–M | `Km, Vmax = curve_fit(mm, S, rates)` |
+| **5 · Validate** | Lineweaver–Burk or Eadie–Hofstee plot | `plot(1/S, 1/rate)` |
+
+---
+
+## 4 Interpreting the curves 👀
+
+### 4.1  Hyperbolic plot  
+Looks like oxygen binding curve – plateau = V<sub>max</sub>.
+
+### 4.2  Lineweaver–Burk double-reciprocal  
+Straight line; intercepts give K<sub>m</sub> & V<sub>max</sub>.  
+⚠️ Amplifies error at low substrate – use only for visual check.
+
+### 4.3  Competitive vs non-competitive inhibition  
+Adding *4-methylpyrazole* (competitive) **raises apparent K<sub>m</sub>**,
+V<sub>max</sub> unchanged.  
+Adding heavy-metal ion (non-competitive) **drops V<sub>max</sub>**, K<sub>m</sub> same.
+
+---
+
+## 5 Common pitfalls 🛑
+
+* **Substrate depletion** – keep turnover < 10 % or v₀ isn’t “initial”.  
+* **Dead-time reading** – manual mix → spectro start delay skews first points.  
+* **Enzyme instability** – freeze–thaw Adh cuts V<sub>max</sub> in half; prepare fresh.  
+* **Product inhibition** – lactate DH generates NADH that feeds back; include coupling enzyme.
+
+---
+
+## 6 Quick-start code snippet 🐍
+
+```python
+from kmfit import fit_mm
+# S = substrate μM, v = ΔA/min converted to μM/min
+Km, Vmax = fit_mm(S, v)
+print(f"Km = {Km:.2f} μM ; Vmax = {Vmax:.1f} μmol/min")
+```
+
+## In-lab checklist ✅
+
+- Blank the plate reader with buffer + NAD⁺ only.
+
+- Run triplicates per [S].
+
+- Use ≤10 µg protein per well to avoid turbidity.
+
+- Keep assay at 25 °C; K<sub>m</sub> shifts with temperature.
+
+<Callout type="info">
+  For a teaching demo: larval Adh with ethanol substrate and NAD⁺ cofactor
+  gives a clean 340 nm readout in &lt;10 min and smells like the pub –
+  students remember it!
+</Callout>
+
+## 8 Take-home 🎯
+
+- K<sub>m</sub> measures affinity (low is tight binding),
+V<sub>max</sub> measures capacity.
+
+- Always validate fits with a secondary plot (Lineweaver or Eadie).
+
+- Report k<sub>cat</sub>/K<sub>m</sub> when comparing mutant vs wild-type alleles.
+
+Ready to swap pipettes for Python? Jump to the upcoming mini-lab where you’ll fit Adh kinetics live in the browser!
